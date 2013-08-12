@@ -114,6 +114,7 @@ static void radiolinkTask(void *arg) {
 
     nrfSetEnable(false);
 
+    int recv = 0;
     // Fetch all the data (Loop until the RX Fifo is NOT empty)
     while (!(nrfRead1Reg(REG_FIFO_STATUS) & 0x01)) {
       dataLen = nrfRxLength(0);
@@ -126,6 +127,7 @@ static void radiolinkTask(void *arg) {
         pk.raw.size = dataLen - 1;
         nrfReadRX((char *)pk.raw.data, dataLen);
 
+	recv++;
         // Push it in the queue (If overflow, the packet is dropped)
         if (!CRTP_IS_NULL_PACKET(pk.crtp)) // Don't follow the NULL packets
           xQueueSend(rxQueue, &pk, 0);
@@ -134,12 +136,20 @@ static void radiolinkTask(void *arg) {
 
     // Push the data to send (Loop until the TX Fifo is full or there is no more
     // data to send)
-    while ((uxQueueMessagesWaiting((xQueueHandle)txQueue) > 0) &&
+    /*    while ((uxQueueMessagesWaiting((xQueueHandle)txQueue) > 0) &&
            !(nrfRead1Reg(REG_FIFO_STATUS) & 0x20)) {
       xQueueReceive(txQueue, &pk, 0);
       pk.raw.size++;
 
       nrfWriteAck(0, (char *)pk.raw.data, pk.raw.size);
+      }*/
+
+    int i;
+    for (i = 0; i < recv; i++) {
+      if ((nrfRead1Reg(REG_FIFO_STATUS) & 0x20)) {
+	break;
+      }
+      nrfWriteAck(0, "Hello, this is a packet from air; please read me and eat me. LOL", 30);
     }
 
     // clear the interruptions flags
